@@ -6,8 +6,6 @@ import os
 
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
 
-API_V1_STR = "/api/v1"
-
 engine = create_engine(
     SQLALCHEMY_DATABASE_URI, connect_args={"check_same_thread": False}
 )
@@ -17,9 +15,11 @@ Base = declarative_base()
 
 
 # Dependency
-def get_db():
+def get_rdb():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+import os

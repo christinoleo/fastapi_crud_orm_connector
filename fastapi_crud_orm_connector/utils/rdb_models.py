@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String, Text, Float
 
-from fastapi_crud_orm_connector.utils.session import Base
+from fastapi_crud_orm_connector.utils.rdb_session import Base
 
 
 class User(Base):

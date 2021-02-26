@@ -1,14 +1,15 @@
 from operator import and_
-from typing import Dict, List
+from typing import Dict, List, Type
 
 from fastapi import HTTPException, status
+from pydantic.main import BaseModel
 from sqlalchemy import String as ormString
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from fastapi_crud_orm_connector.orm.crud import Crud, DataSortType, DataSort, GetAllResponse
 from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase, orm2pydantic
-from fastapi_crud_orm_connector.utils.session import Base
+from fastapi_crud_orm_connector.utils.rdb_session import Base
 
 
 class RDBCrud(Crud):
@@ -69,6 +70,29 @@ class RDBCrud(Crud):
                 else:
                     query = query.order_by(_inner.desc())
         return query
+
+    def get_first(self, data_filter: Dict = None, data_fields: List = None, convert2schema: Type[BaseModel] = None):
+        ret = self.db.query(self.model)
+        ret = self._generate_filters(data_filter, ret)
+
+        if data_fields is not None:
+            ret_list = []
+            for e in ret:
+                ret_list.append({f: e[i] for i, f in enumerate(data_fields)})
+            ret = ret_list
+
+        ret = ret.first()
+
+        if not convert2schema:
+            return ret
+        else:
+            _schema = self.schema.instance if convert2schema is None else convert2schema
+            if data_fields is None:
+                ret = self.schema.instance.from_orm(ret)
+            else:
+                ret = self.schema.instance(**ret)
+
+        return ret
 
     def get_all(self, offset: int = 0,
                 limit: int = 25,

@@ -3,17 +3,16 @@ from jose import jwt, JWTError
 
 from fastapi_crud_orm_connector import schemas
 from fastapi_crud_orm_connector.api import security
-from fastapi_crud_orm_connector.orm.user_crud import UserCrud
-from fastapi_crud_orm_connector.utils import session, models
 
 
 class Authentication:
-    def __init__(self, secret_key: str, algorithm: str = "HS256", user_crud=UserCrud()):
+    def __init__(self, database_connector, user_crud, secret_key: str, algorithm: str = "HS256"):
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.user_crud = user_crud
+        self.database_connector = database_connector
 
-        async def _get_current_user(db=Depends(session.get_db), token: str = Depends(security.oauth2_scheme)):
+        async def _get_current_user(db=Depends(database_connector), token: str = Depends(security.oauth2_scheme)):
             credentials_exception = HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
@@ -35,12 +34,12 @@ class Authentication:
                 raise credentials_exception
             return user
 
-        async def _get_current_active_user(current_user: models.User = Depends(_get_current_user)):
+        async def _get_current_active_user(current_user = Depends(_get_current_user)):
             if not current_user.is_active:
                 raise HTTPException(status_code=400, detail="Inactive user")
             return current_user
 
-        async def _get_current_active_superuser(current_user: models.User = Depends(_get_current_user),) -> models.User:
+        async def _get_current_active_superuser(current_user = Depends(_get_current_user),):
             if not current_user.is_superuser:
                 raise HTTPException(
                     status_code=403, detail="The user doesn't have enough privileges"
@@ -52,7 +51,7 @@ class Authentication:
         self.get_current_active_superuser = _get_current_active_superuser
 
     def authenticate_user(self, db, email: str, password: str):
-        user = self.user_crud.use_db(db).get_user_by_email(email)
+        user = self.user_crud.use_db(db).get_user_by_email(email, include_password=True)
         if not user:
             return False
         if not security.verify_password(password, user.hashed_password):

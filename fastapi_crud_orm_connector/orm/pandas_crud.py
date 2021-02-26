@@ -13,7 +13,7 @@ class PandasCrud(Crud):
         self.df = df
         self.column_id = column_id if column_id else df.columns[0]
 
-    def get(self, entry_id):
+    def get(self, entry_id, convert2schema: bool = True):
         ret = self.df.iloc[entry_id]
         if ret is None:
             raise HTTPException(status_code=404, detail="not found")

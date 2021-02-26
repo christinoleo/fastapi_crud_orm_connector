@@ -1,6 +1,8 @@
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Type
+
 from pydantic import BaseModel
+
 from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase
 
 
@@ -27,7 +29,10 @@ class Crud:
         self.db = db
         return self
 
-    def get(self, entry_id: int):
+    def get(self, entry_id: int, convert2schema: bool = True):
+        raise NotImplemented()
+
+    def get_first(self, data_filter: Dict = None, data_fields: List = None, convert2schema: Type[BaseModel] = None):
         raise NotImplemented()
 
     def get_or_create(self, entry, data_filter: Dict = None):
@@ -52,4 +57,3 @@ class Crud:
 
     def count(self, data_filter: Dict = None) -> int:
         raise NotImplemented()
-

@@ -32,10 +32,14 @@ class UserEdit(UserBase):
 
 
 class User(UserBase):
-    id: int
+    id: str
 
     class Config:
         orm_mode = True
+
+
+class SecretUser(UserBase):
+    hashed_password: str
 
 
 user_schema = SchemaBase(

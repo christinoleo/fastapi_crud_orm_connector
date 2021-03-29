@@ -88,9 +88,9 @@ class RDBCrud(Crud):
         else:
             _schema = self.schema.instance if convert2schema is None else convert2schema
             if data_fields is None:
-                ret = self.schema.instance.from_orm(ret)
+                ret = _schema.from_orm(ret)
             else:
-                ret = self.schema.instance(**ret)
+                ret = _schema(**ret)
 
         return ret
 

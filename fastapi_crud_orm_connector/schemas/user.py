@@ -41,6 +41,9 @@ class User(UserBase):
 class SecretUser(UserBase):
     hashed_password: str
 
+    class Config:
+        orm_mode = True
+
 
 user_schema = SchemaBase(
     base=UserBase,

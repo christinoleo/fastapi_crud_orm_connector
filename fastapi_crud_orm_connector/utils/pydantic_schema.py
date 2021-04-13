@@ -61,6 +61,8 @@ _pd_conversion_map = {
     'integer': int,
     'float': float,
     'numeric': float,
+    'Int64': int,
+    'Float64': float,
 }
 
 
@@ -69,7 +71,7 @@ def pd2pydantic(model_name: str, df: pd.DataFrame,
                 exclude: Container[str] = []):
     fields = {}
     for name in df.columns:
-        python_type = _pd_conversion_map[convert_dtypes(df[name])]
+        python_type = _pd_conversion_map[str(convert_dtypes(df[name]))]
         if name in exclude:
             continue
         python_type = Optional[python_type]

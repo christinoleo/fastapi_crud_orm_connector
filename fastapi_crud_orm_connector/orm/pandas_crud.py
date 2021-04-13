@@ -1,15 +1,15 @@
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import pandas as pd
 from fastapi import HTTPException
 
-from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType
-from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase
+from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation
+from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase, pd2pydantic
 
 
 class PandasCrud(Crud):
-    def __init__(self, df: pd.DataFrame, schema: SchemaBase, column_id=None):
-        super().__init__(schema)
+    def __init__(self, df: pd.DataFrame, schema: Union[SchemaBase, str], column_id=None):
+        super().__init__(pd2pydantic(schema, df) if isinstance(schema, str) else schema)
         self.df = df
         self.column_id = column_id if column_id else df.columns[0]
 
@@ -23,21 +23,45 @@ class PandasCrud(Crud):
                 limit: int = 25,
                 data_filter: Dict = None,
                 data_sort: DataSort = None,
-                data_fields: List = None):
+                data_fields: List = None,
+                data_group_by: DataGroupBy = None,
+                data_parse: Dict = None,
+                to_schema=True):
         ret = self.df
 
-        if data_filter:
+        if data_filter is not None:
             for k, v in data_filter.items():
-                ret = ret[ret[k] == v]
+                if isinstance(v, list):
+                    ret = ret[ret[k].isin(v)]
+                else:
+                    ret = ret[ret[k] == v]
+
+        if data_group_by is not None:
+            ret = ret.groupby(data_group_by.data_fields)
+            if data_fields is not None: ret = ret[data_fields]
+            if data_group_by.operation == MathOperation.sum: ret = ret.sum()
+            elif data_group_by.operation == MathOperation.count: ret = ret.count()
+            elif data_group_by.operation == MathOperation.min: ret = ret.min()
+            elif data_group_by.operation == MathOperation.max: ret = ret.max()
+            elif data_group_by.operation == MathOperation.mean: ret = ret.mean()
+            if data_group_by.unstack:
+                ret = ret.unstack()
+                ret.columns = ret.columns.droplevel()
+        elif data_fields is not None:
+            ret = ret[data_fields]
+
 
         if data_sort:
             ret = ret.sort_values(by=data_sort.field, ascending=data_sort.type != DataSortType.ASC)
 
-        if data_fields:
-            ret = ret[data_fields]
+        if data_parse:
+            for k, v in data_parse.items():
+                ret[k] = v(ret[k])
 
         total_count = len(ret)
-        ret = ret.iloc[offset:min(offset + limit, len(ret))]
+        ret = ret.iloc[offset:(len(ret) if limit < 0 else min(offset + limit, len(ret)))]
+        if not to_schema:
+            return ret
         ret = [self.schema.instance(**v.dropna().to_dict()) for k, v in ret.iterrows()]
         return GetAllResponse(list=ret, count=total_count)
 

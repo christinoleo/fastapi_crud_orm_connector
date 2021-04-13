@@ -16,6 +16,20 @@ class DataSort(BaseModel):
     type: DataSortType = DataSortType.DESC
 
 
+class MathOperation(str, Enum):
+    sum = "sum"
+    count = "count"
+    min = "min"
+    max = "max"
+    mean = "mean"
+
+
+class DataGroupBy(BaseModel):
+    data_fields: List[str]
+    operation: MathOperation
+    unstack: bool = False
+
+
 class GetAllResponse(BaseModel):
     list: List
     count: int

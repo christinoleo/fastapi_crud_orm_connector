@@ -3,7 +3,7 @@ from typing import Dict, List, Union
 import pandas as pd
 from fastapi import HTTPException
 
-from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation
+from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation, MetadataTreeRequest
 from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase, pd2pydantic
 
 
@@ -39,17 +39,21 @@ class PandasCrud(Crud):
         if data_group_by is not None:
             ret = ret.groupby(data_group_by.data_fields)
             if data_fields is not None: ret = ret[data_fields]
-            if data_group_by.operation == MathOperation.sum: ret = ret.sum()
-            elif data_group_by.operation == MathOperation.count: ret = ret.count()
-            elif data_group_by.operation == MathOperation.min: ret = ret.min()
-            elif data_group_by.operation == MathOperation.max: ret = ret.max()
-            elif data_group_by.operation == MathOperation.mean: ret = ret.mean()
+            if data_group_by.operation == MathOperation.sum:
+                ret = ret.sum()
+            elif data_group_by.operation == MathOperation.count:
+                ret = ret.count()
+            elif data_group_by.operation == MathOperation.min:
+                ret = ret.min()
+            elif data_group_by.operation == MathOperation.max:
+                ret = ret.max()
+            elif data_group_by.operation == MathOperation.mean:
+                ret = ret.mean()
             if data_group_by.unstack:
                 ret = ret.unstack()
                 ret.columns = ret.columns.droplevel()
         elif data_fields is not None:
             ret = ret[data_fields]
-
 
         if data_sort:
             ret = ret.sort_values(by=data_sort.field, ascending=data_sort.type != DataSortType.ASC)
@@ -64,6 +68,25 @@ class PandasCrud(Crud):
             return ret
         ret = [self.schema.instance(**v.dropna().to_dict()) for k, v in ret.iterrows()]
         return GetAllResponse(list=ret, count=total_count)
+
+    def generate_tree(self, metadata_request: MetadataTreeRequest):
+        tree_list = self.df[:]
+        if metadata_request.root:
+            tree_list = tree_list[tree_list.path.str.startswith(metadata_request.root)]
+        tree_list_path = tree_list.path.str.split('>>', expand=True)
+        tree = {e: dict() for e in tree_list_path[0].unique()}
+        for i, col in enumerate(tree_list_path.columns[1:]):
+            for index, value in tree_list_path[col][tree_list_path[col - 1].notnull()].items():
+                ref = tree
+                for c in tree_list_path.loc[index, :i].values:
+                    ref = ref[c]
+                if value is not None:
+                    ref[value] = dict()
+                    if tree_list_path.loc[index, (col + 1):].notnull().sum() < 1:
+                        ref[value]['@id'] = tree_list.loc[index].id
+                elif tree_list_path.loc[index, (col):].notnull().sum() < 1:
+                    ref['@id'] = tree_list.loc[index].id
+        return tree
 
     # def create(self, entry):
     #     db_entry = self.model(**entry.dict())

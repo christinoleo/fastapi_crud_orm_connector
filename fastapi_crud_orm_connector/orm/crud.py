@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Optional
 
 from pydantic import BaseModel
 
@@ -33,6 +33,15 @@ class DataGroupBy(BaseModel):
 class GetAllResponse(BaseModel):
     list: List
     count: int
+
+
+class MetadataTreeRequest(BaseModel):
+    root: Optional[str] = None
+    levels: int = 10
+
+
+class MetadataRequest(BaseModel):
+    map_fields: Optional[List[str]] = None
 
 
 class Crud:

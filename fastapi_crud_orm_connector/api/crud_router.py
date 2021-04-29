@@ -76,10 +76,10 @@ def configure_crud_router(r: APIRouter, crud: Crud, url: str, get_db, metadata_c
             return metadata
 
         @r.post(url + '/metadata/tree')
-        async def census_tree(request: Request,
-                              response: Response,
-                              metadata_request: MetadataTreeRequest,
-                              db=Depends(get_db)):
+        async def tree(request: Request,
+                       response: Response,
+                       metadata_request: MetadataTreeRequest,
+                       db=Depends(get_db)):
             return metadata_crud.use_db(db).generate_tree(metadata_request)
 
     return r

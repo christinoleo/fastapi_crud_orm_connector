@@ -52,7 +52,7 @@ class UserCrud:
     def create_user(self, user):
         hashed_password = get_password_hash(user.password)
         return self.crud.create(
-            dict(
+            SecretUser(
                 first_name=user.first_name,
                 last_name=user.last_name,
                 email=user.email,

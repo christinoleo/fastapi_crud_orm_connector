@@ -1,19 +1,18 @@
-import os
-
 from pymongo import MongoClient
-from pymongo.client_session import ClientSession
-
-MONGODB_DATABASE_URI = os.getenv("MONGODB_URL")
-MONGODB_DATABASE_NAME = os.getenv("MONGODB_DATABASE")
+from fastapi_crud_orm_connector.utils.database_session import DatabaseSession
 
 
-if MONGODB_DATABASE_URI is not None:
-    engine = MongoClient(MONGODB_DATABASE_URI)
+class MongoDBSession(DatabaseSession):
+    def __init__(self, url, database_name):
+        self.url = url
+        self.database_name = database_name
+        if url is not None:
+            self.engine = MongoClient(url)
 
-
-# Dependency
-def get_mdb():
-    try:
-        yield engine[MONGODB_DATABASE_NAME]
-    finally:
-        pass
+    def get_db(self):
+        try:
+            yield self.engine[self.database_name]
+        except NameError as e:
+            raise NameError('Mongodb engine not defined', e)
+        finally:
+            pass

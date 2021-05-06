@@ -2,27 +2,24 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-import os
+from fastapi_crud_orm_connector.utils.database_session import DatabaseSession
 
-SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
-Base = None
-SessionLocal = None
-
-if SQLALCHEMY_DATABASE_URI is not None:
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URI, connect_args={"check_same_thread": False}
-    )
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    Base = declarative_base()
+Base = declarative_base()
 
 
-# Dependency
-def get_rdb():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+class RDBSession(DatabaseSession):
+    def __init__(self, url):
+        self.url = url
+        if url is not None:
+            self.engine = create_engine(url, connect_args={"check_same_thread": False})
+            self.session_local = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
-import os
+    def get_db(self):
+        try:
+            db = self.session_local()
+            try:
+                yield db
+            finally:
+                db.close()
+        except NameError as e:
+            raise NameError('RDB engine not defined', e)

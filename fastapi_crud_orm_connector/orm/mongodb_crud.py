@@ -58,7 +58,8 @@ class MongoDBCrud(Crud):
         return GetAllResponse(list=ret, count=total_count)
 
     def create(self, entry):
-        ret = self.db[self.model].insert_one(**entry.dict())
+        inserted = self.db[self.model].insert_one(entry.dict())
+        ret = self.db[self.model].find_one(inserted.inserted_id)
         ret['id'] = str(ret['_id'])
         return self.schema.instance(**ret)
 

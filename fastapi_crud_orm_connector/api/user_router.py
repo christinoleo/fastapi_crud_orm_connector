@@ -58,7 +58,7 @@ def generate_user_router(r: APIRouter, auth: Authentication, user_crud: UserCrud
 
     @r.put("/users/{user_id}", response_model=user_crud.get_schema(), response_model_exclude_none=True)
     async def user_edit(request: Request,
-                        user_id: int,
+                        user_id: str,
                         user: UserEdit,
                         db=Depends(auth.get_db),
                         current_user=Depends(auth.get_current_active_superuser), ):
@@ -69,7 +69,7 @@ def generate_user_router(r: APIRouter, auth: Authentication, user_crud: UserCrud
 
     @r.delete("/users/{user_id}", response_model=user_crud.get_schema(), response_model_exclude_none=True)
     async def user_delete(request: Request,
-                          user_id: int,
+                          user_id: str,
                           db=Depends(auth.get_db),
                           current_user=Depends(auth.get_current_active_superuser), ):
         """

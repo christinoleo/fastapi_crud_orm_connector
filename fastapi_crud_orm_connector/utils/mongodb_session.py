@@ -3,15 +3,17 @@ import os
 from pymongo import MongoClient
 from pymongo.client_session import ClientSession
 
-DATABASE_URI = os.getenv("MONGODB_URL")
-DATABASE_NAME = os.getenv("MONGODB_DATABASE")
+MONGODB_DATABASE_URI = os.getenv("MONGODB_URL")
+MONGODB_DATABASE_NAME = os.getenv("MONGODB_DATABASE")
 
-engine = MongoClient(DATABASE_URI)
+
+if MONGODB_DATABASE_URI is not None:
+    engine = MongoClient(MONGODB_DATABASE_URI)
 
 
 # Dependency
 def get_mdb():
     try:
-        yield engine[DATABASE_NAME]
+        yield engine[MONGODB_DATABASE_NAME]
     finally:
         pass

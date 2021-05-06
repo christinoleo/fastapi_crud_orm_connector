@@ -6,12 +6,13 @@ import os
 
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URI, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+if SQLALCHEMY_DATABASE_URI is not None:
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URI, connect_args={"check_same_thread": False}
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
+    Base = declarative_base()
 
 
 # Dependency

@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
+Base = None
+SessionLocal = None
 
 if SQLALCHEMY_DATABASE_URI is not None:
     engine = create_engine(

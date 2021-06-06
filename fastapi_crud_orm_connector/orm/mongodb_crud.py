@@ -1,4 +1,4 @@
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Optional, Union
 
 from bson import ObjectId
 from fastapi import HTTPException
@@ -19,27 +19,28 @@ class MongoDBCrud(Crud):
         if f is None: return dict()
         return {k: ObjectId(v) if k == '_id' else v for k, v in f.items()}
 
-    def get(self, entry_id: str, convert2schema: bool = True):
+    def get(self, entry_id: str, convert2schema: Optional[Union[bool, Type[BaseModel]]] = True):
         ret = self.db[self.model].find_one({'_id': ObjectId(entry_id)})
         if not ret:
             raise HTTPException(status_code=404, detail="not found")
-        return self.schema.instance(**ret) if convert2schema else ret
+        return self._calculate_schema(ret, convert2schema)
 
-    def get_first(self, data_filter: Dict = None, data_fields: List = None, convert2schema: Type[BaseModel] = None):
+    def get_first(self, data_filter: Dict = None, data_fields: List = None, convert2schema: Union[bool, Type[BaseModel]] = True):
         _fields = {f: True for f in data_fields} if data_fields is not None else None
         ret = self.db[self.model].find_one(self._process_filter(data_filter), _fields)
         if not ret:
             raise HTTPException(status_code=404, detail="not found")
         ret['id'] = str(ret['_id'])
-        if convert2schema is None: return self.schema.instance(**ret)
-        elif not convert2schema: return ret
-        else: return convert2schema(**ret)
+        return self._calculate_schema(ret, convert2schema)
 
     def get_all(self, offset: int = 0,
                 limit: int = 25,
                 data_filter: Dict = None,
                 data_sort: DataSort = None,
-                data_fields: List = None):
+                data_fields: List = None,
+                *,
+                convert2schema: Union[bool, Type[BaseModel]] = True
+                ) -> GetAllResponse:
         _fields = {f: True for f in data_fields} if data_fields is not None else None
         ret = self.db[self.model].find(self._process_filter(data_filter), _fields)
 
@@ -53,9 +54,8 @@ class MongoDBCrud(Crud):
         # Convert to schema
         for r in ret:
             r['id'] = str(r['_id'])
-        ret = [self.schema.instance(**r) for r in ret]
 
-        return GetAllResponse(list=ret, count=total_count)
+        return GetAllResponse(list=self._calculate_schema(ret, convert2schema), count=total_count)
 
     def create(self, entry):
         inserted = self.db[self.model].insert_one(entry.dict())

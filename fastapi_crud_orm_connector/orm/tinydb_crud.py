@@ -14,7 +14,7 @@ class TinyDBCrud(Crud):
         self.db = db
         self.model = model
 
-    def get(self, entry_id: int, convert2schema: bool = True):
+    def get(self, entry_id: int, convert2schema: Optional[Union[bool, Type[BaseModel]]] = None):
         ret = self.db.table(self.model).get(doc_id=entry_id)
         if not ret:
             raise HTTPException(status_code=404, detail="not found")

@@ -4,13 +4,19 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from fastapi_crud_orm_connector.api.security import get_password_hash
-from fastapi_crud_orm_connector.orm.crud import Crud
+from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse
+from fastapi_crud_orm_connector.orm.dict_crud import DictCrud
 from fastapi_crud_orm_connector.orm.mongodb_crud import MongoDBCrud
 from fastapi_crud_orm_connector.orm.rdb_crud import RDBCrud
-from fastapi_crud_orm_connector.schemas import user_schema, SecretUser
-from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase
+from fastapi_crud_orm_connector.schemas import user_schema, SecretUser, pandas_user_schema
+from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase, PandasSchema
 from fastapi_crud_orm_connector.utils.rdb_models import User
 from fastapi_crud_orm_connector.utils.rdb_session import Base
+
+
+def dict_user_crud(data: t.List[t.Dict],
+                   schema: PandasSchema = pandas_user_schema):
+    return UserCrud(DictCrud(data, schema))
 
 
 def rdb_user_crud(user_model: Base = User, schema: SchemaBase = user_schema, db: Session = None):
@@ -41,14 +47,14 @@ class UserCrud:
 
     def get_user_by_email(self, email: str, include_password: bool = False):
         try:
-            schema = None if not include_password else SecretUser
+            schema = True if not include_password else SecretUser
             return self.crud.get_first(data_filter={'email': email}, convert2schema=schema)
         except Exception as e:
             # raise HTTPException(status_code=404, detail="User not found")
             print(f'User not found {email}')
             return None
 
-    def get_users(self, skip: int = 0, limit: int = 100) -> t.List:
+    def get_users(self, skip: int = 0, limit: int = 100) -> GetAllResponse:
         return self.crud.get_all(offset=skip, limit=limit)
 
     def create_user(self, user):

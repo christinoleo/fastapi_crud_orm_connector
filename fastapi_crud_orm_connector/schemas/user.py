@@ -2,7 +2,7 @@ import typing as t
 
 from pydantic import BaseModel
 
-from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase
+from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase, PandasSchema
 
 
 class UserBase(BaseModel):
@@ -46,6 +46,12 @@ class SecretUser(UserBase):
 
 
 user_schema = SchemaBase(
+    base=UserBase,
+    create=UserCreate,
+    edit=UserEdit,
+    instance=User)
+
+pandas_user_schema = PandasSchema(
     base=UserBase,
     create=UserCreate,
     edit=UserEdit,

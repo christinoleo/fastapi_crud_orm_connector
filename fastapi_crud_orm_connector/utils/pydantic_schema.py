@@ -1,10 +1,10 @@
 from typing import Type, Container, Optional
 
+import pandas as pd
 from pandas.core.dtypes.cast import convert_dtypes
 from pydantic import BaseModel, create_model, BaseConfig
 from sqlalchemy import inspect
 from sqlalchemy.orm import ColumnProperty
-import pandas as pd
 
 
 class OrmConfig(BaseConfig):
@@ -18,9 +18,21 @@ class SchemaBase(BaseModel):
     instance: Type[BaseModel]
     id_type: Type = str
 
-    @staticmethod
-    def simple(schema: Type[BaseModel]):
-        return SchemaBase(base=schema, create=schema, edit=schema, instance=schema)
+    @classmethod
+    def simple(cls, schema: Type[BaseModel]):
+        return cls(base=schema, create=schema, edit=schema, instance=schema)
+
+    def converter(self, entry, schema_type=None):
+        if schema_type is None:
+            schema_type = self.instance
+        return schema_type(**entry)
+
+
+class PandasSchema(SchemaBase):
+    def converter(self, entry, schema_type=None):
+        if schema_type is None:
+            schema_type = self.instance
+        return [schema_type(**v.dropna().to_dict()) for k, v in entry.iterrows()]
 
 
 def orm2pydantic(db_model: Type, *,
@@ -68,10 +80,13 @@ _pd_conversion_map = {
 
 def pd2pydantic(model_name: str, df: pd.DataFrame,
                 config: Type = OrmConfig,
-                exclude: Container[str] = []):
+                exclude: Container[str] = [],
+                column_id: str = 'id',
+                ) -> PandasSchema:
     fields = {}
-    for name in df.columns:
-        python_type = _pd_conversion_map[str(convert_dtypes(df[name]))]
+    ndf = df.reset_index()
+    for name in ndf.columns:
+        python_type = _pd_conversion_map[str(convert_dtypes(ndf[name]))]
         if name in exclude:
             continue
         python_type = Optional[python_type]
@@ -81,8 +96,10 @@ def pd2pydantic(model_name: str, df: pd.DataFrame,
         fields[name] = (python_type, default)
     # noinspection PyTypeChecker
     pydantic_model = create_model(model_name, **fields)
-    return SchemaBase(
+    fields.pop(column_id, None)
+    pydantic_model_no_id = create_model(model_name + '_no_id', **fields)
+    return PandasSchema(
         base=pydantic_model,
         create=pydantic_model,
-        edit=pydantic_model,
+        edit=pydantic_model_no_id,
         instance=pydantic_model)

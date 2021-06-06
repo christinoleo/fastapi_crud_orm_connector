@@ -1,5 +1,5 @@
 from operator import and_
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Optional, Union
 
 from fastapi import HTTPException, status
 from pydantic.main import BaseModel
@@ -19,11 +19,14 @@ class RDBCrud(Crud):
         self.model = model
         self.model_map = model_map
 
-    def get(self, entry_id: int, convert2schema: bool = True):
+    def get(self, entry_id: int, convert2schema: Optional[Union[bool, Type[BaseModel]]] = True):
         ret = self.db.query(self.model).filter(self.model.id == entry_id).first()
         if not ret:
             raise HTTPException(status_code=404, detail="not found")
-        return self.schema.instance.from_orm(ret) if convert2schema else ret
+        custom_converter = convert2schema
+        if convert2schema is True:
+            custom_converter = self.schema.instance.from_orm
+        return self._calculate_schema(ret, custom_converter)
 
     @staticmethod
     def _generate_filter(model, field, value):
@@ -71,7 +74,7 @@ class RDBCrud(Crud):
                     query = query.order_by(_inner.desc())
         return query
 
-    def get_first(self, data_filter: Dict = None, data_fields: List = None, convert2schema: Type[BaseModel] = None):
+    def get_first(self, data_filter: Dict = None, data_fields: List = None, convert2schema: Union[bool, Type[BaseModel]] = True):
         ret = self.db.query(self.model)
         ret = self._generate_filters(data_filter, ret)
 
@@ -98,7 +101,10 @@ class RDBCrud(Crud):
                 limit: int = 25,
                 data_filter: Dict = None,
                 data_sort: DataSort = None,
-                data_fields: List = None):
+                data_fields: List = None,
+                *,
+                convert2schema: Optional[Union[bool, Type[BaseModel]]] = True #TODO
+                ) -> GetAllResponse:
         ret = self.db.query(self.model)
         if data_fields is not None:
             q = [getattr(self.model, f) for f in data_fields]
@@ -120,12 +126,11 @@ class RDBCrud(Crud):
             ret = ret_list
 
         # Convert to schema
-        if data_fields is None:
-            ret = [self.schema.instance.from_orm(r) for r in ret]
-        else:
-            ret = [self.schema.instance(**r) for r in ret]
+        custom_converter = convert2schema
+        if convert2schema is True and data_fields is None:
+            custom_converter = self.schema.instance.from_orm
 
-        return GetAllResponse(list=ret, count=total_count)
+        return GetAllResponse(list=self._calculate_schema(ret, custom_converter), count=total_count)
 
     def create(self, entry):
         db_entry = self.model(**entry.dict())

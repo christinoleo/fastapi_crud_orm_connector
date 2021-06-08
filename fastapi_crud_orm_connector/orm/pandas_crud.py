@@ -13,7 +13,7 @@ class PandasCrud(Crud):
     def __init__(self,
                  schema: Union[PandasSchema, str],
                  df: pd.DataFrame = None,
-                 column_id: str = 'id',
+                 column_id: Union[str, bool] = 'id',
                  file_path: str = None,
                  ):
         if file_path is None and df is None:
@@ -23,7 +23,7 @@ class PandasCrud(Crud):
 
         super().__init__(pd2pydantic(schema, df, column_id=column_id) if isinstance(schema, str) else schema)
         super().use_db(df)
-        self.column_id = column_id if column_id is not None else df.index.name
+        self.column_id = column_id if column_id is not None and column_id is not False else df.index.name
         self.file_path = file_path
         self.df = df
 

@@ -35,15 +35,6 @@ class GetAllResponse(BaseModel):
     count: int
 
 
-class MetadataTreeRequest(BaseModel):
-    root: Optional[str] = None
-    levels: int = 10
-
-
-class MetadataRequest(BaseModel):
-    map_fields: Optional[List[str]] = None
-
-
 class Crud:
     def __init__(self, schema: SchemaBase = None):
         self.schema = schema

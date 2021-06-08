@@ -4,7 +4,7 @@ from typing import List, Dict, Callable
 from fastapi import Request, Depends, Response, APIRouter, Query
 
 from fastapi_crud_orm_connector.api.query_parser import json_parser
-from fastapi_crud_orm_connector.orm.crud import DataSort, DataSortType, MetadataTreeRequest, MetadataRequest, Crud
+from fastapi_crud_orm_connector.orm.crud import DataSort, DataSortType, Crud
 
 
 class DefaultAdminRouter:
@@ -65,38 +65,6 @@ class DefaultAdminRouter:
         return call
 
 
-class MetadataAdminRouter(DefaultAdminRouter):
-    def __init__(self, crud: Crud, metadata_crud):
-        super().__init__(crud)
-        self.metadata_crud = metadata_crud
-
-    def metadata_get_all(self, get_db=None):
-        async def call(request: Request,
-                       response: Response,
-                       metadata_request: MetadataRequest,
-                       db=Depends(get_db)):
-            self.crud.use_db(db)
-            metadata = self.metadata_crud.get_all(
-                data_filter=dict(id=metadata_request.map_fields) if metadata_request.map_fields else None,
-                data_parse={"path": lambda v: v.str.split('>>')},
-                convert2schema=False).list
-            metadata['name'] = metadata['id']
-            metadata = metadata.set_index('id').T.to_dict()
-            return metadata
-
-        return call
-
-    def tree(self, get_db=None):
-        async def call(request: Request,
-                       response: Response,
-                       metadata_request: MetadataTreeRequest,
-                       db=Depends(get_db)):
-            self.crud.use_db(db)
-            return self.metadata_crud.generate_tree(metadata_request)
-
-        return call
-
-
 def configure_crud_router(
         r: APIRouter,
         url: str,
@@ -129,10 +97,5 @@ def configure_crud_router(
           response_model_exclude_none=True,
           **_arg_map['edit'])(router.edit(get_db))
     r.delete(url + "/{id}", response_model_exclude_none=True, **_arg_map['delete'])(router.delete(get_db))
-
-    if isinstance(router, MetadataAdminRouter) is not None:
-        r.post(url + '/metadata', response_model=Dict if include_response_model else None,
-               **_arg_map['metadata_get_all'])(router.metadata_get_all(get_db))
-        r.post(url + '/metadata/tree', **_arg_map['tree'])(router.tree(get_db))
 
     return r

@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from starlette import status
 
-from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation, MetadataTreeRequest
+from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation
 from fastapi_crud_orm_connector.utils.pydantic_schema import pd2pydantic, PandasSchema
 
 
@@ -86,25 +86,6 @@ class PandasCrud(Crud):
         total_count = len(ret)
         ret = ret.iloc[offset:(len(ret) if limit < 0 else min(offset + limit, len(ret)))]
         return GetAllResponse(list=self._calculate_schema(ret, convert2schema), count=total_count)
-
-    def generate_tree(self, metadata_request: MetadataTreeRequest):
-        tree_list = self.df[:]
-        if metadata_request.root:
-            tree_list = tree_list[tree_list.path.str.startswith(metadata_request.root)]
-        tree_list_path = tree_list.path.str.split('>>', expand=True)
-        tree = {e: dict() for e in tree_list_path[0].unique()}
-        for i, col in enumerate(tree_list_path.columns[1:]):
-            for index, value in tree_list_path[col][tree_list_path[col - 1].notnull()].items():
-                ref = tree
-                for c in tree_list_path.loc[index, :i].values:
-                    ref = ref[c]
-                if value is not None:
-                    ref[value] = dict()
-                    if tree_list_path.loc[index, (col + 1):].notnull().sum() < 1:
-                        ref[value]['@id'] = tree_list.loc[index].id
-                elif tree_list_path.loc[index, (col):].notnull().sum() < 1:
-                    ref['@id'] = tree_list.loc[index].id
-        return tree
 
     def _save(self):
         if self.file_path is not None:

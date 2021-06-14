@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from starlette import status
 
 from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation
+from fastapi_crud_orm_connector.orm.crud_exceptions import CannotFilterFields, CannotGroupBy
 from fastapi_crud_orm_connector.utils.pydantic_schema import pd2pydantic, PandasSchema
 
 
@@ -31,6 +32,8 @@ class PandasCrud(Crud):
         ret = self.df.loc[[entry_id], :].reset_index()
         if ret is None:
             raise HTTPException(status_code=404, detail="not found")
+        if convert2schema is False:
+            return ret
         return self._calculate_schema(ret, convert2schema)[0]
 
     def get_all(self, offset: int = 0,
@@ -43,6 +46,7 @@ class PandasCrud(Crud):
                 *,
                 convert2schema: Union[bool, Type[BaseModel]] = True
                 ) -> GetAllResponse:
+
         ret = self.df
         ret = ret.reset_index()
         if self.column_id is not None:
@@ -58,8 +62,14 @@ class PandasCrud(Crud):
                     ret = ret[ret[k] == v]
 
         if data_group_by is not None:
+            if not set(self.df.columns).issuperset(set(data_group_by.data_fields)):
+                raise CannotGroupBy(data_group_by.data_fields)
+
             ret = ret.groupby(data_group_by.data_fields)
-            if data_fields is not None: ret = ret[data_fields]
+            if data_fields is not None:
+                if not set(self.df.columns).issuperset(set(data_fields)):
+                    raise CannotFilterFields(data_fields)
+                ret = ret[data_fields]
             if data_group_by.operation == MathOperation.sum:
                 ret = ret.sum()
             elif data_group_by.operation == MathOperation.count:
@@ -74,6 +84,9 @@ class PandasCrud(Crud):
                 ret = ret.unstack()
                 ret.columns = ret.columns.droplevel()
         elif data_fields is not None:
+            if not set(self.df.columns).issuperset(set(data_fields)):
+                raise CannotFilterFields(data_fields)
+
             ret = ret[data_fields]
 
         if data_sort:

@@ -25,14 +25,20 @@ class SchemaBase(BaseModel):
     def converter(self, entry, schema_type=None):
         if schema_type is None:
             schema_type = self.instance
-        return schema_type(**entry)
+        try:
+            return schema_type(**entry)
+        except:
+            return schema_type(entry)
 
 
 class PandasSchema(SchemaBase):
     def converter(self, entry, schema_type=None):
         if schema_type is None:
             schema_type = self.instance
-        return [schema_type(**v.dropna().to_dict()) for k, v in entry.iterrows()]
+        try:
+            return [schema_type(**v.dropna().to_dict()) for k, v in entry.iterrows()]
+        except:
+            return [schema_type(v.dropna().to_dict()) for k, v in entry.iterrows()]
 
 
 def orm2pydantic(db_model: Type, *,

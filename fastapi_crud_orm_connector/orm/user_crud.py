@@ -47,7 +47,10 @@ class UserCrud:
 
     def get_user_by_email(self, email: str, include_password: bool = False):
         try:
-            schema = True if not include_password else SecretUser
+            schema = True
+            if include_password:
+                def schema(x):
+                    return SecretUser(**x)
             return self.crud.get_first(data_filter={'email': email}, convert2schema=schema)
         except Exception as e:
             # raise HTTPException(status_code=404, detail="User not found")

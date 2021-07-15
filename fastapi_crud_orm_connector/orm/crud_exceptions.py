@@ -7,5 +7,9 @@ class CannotGroupBy(CannotCrud):
     pass
 
 
+class CannotNormalize(CannotCrud):
+    pass
+
+
 class CannotFilterFields(CannotCrud):
     pass

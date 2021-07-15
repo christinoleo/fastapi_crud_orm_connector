@@ -1,4 +1,4 @@
-from typing import Dict, List, Union, Type
+from typing import Dict, List, Union, Type, Optional
 
 import pandas as pd
 from fastapi import HTTPException
@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from starlette import status
 
 from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation
-from fastapi_crud_orm_connector.orm.crud_exceptions import CannotFilterFields, CannotGroupBy
+from fastapi_crud_orm_connector.orm.crud_exceptions import CannotFilterFields, CannotGroupBy, CannotNormalize
 from fastapi_crud_orm_connector.utils.pydantic_schema import pd2pydantic, PandasSchema
 
 
@@ -44,6 +44,7 @@ class PandasCrud(Crud):
                 data_group_by: DataGroupBy = None,
                 data_parse: Dict = None,
                 *,
+                normalization_column: Optional[str] = None,
                 convert2schema: Union[bool, Type[BaseModel]] = True
                 ) -> GetAllResponse:
 
@@ -51,6 +52,14 @@ class PandasCrud(Crud):
         ret = ret.reset_index()
         if self.column_id is not None:
             ret['id'] = ret[self.column_id]
+
+        if normalization_column:
+            if data_fields is not None:
+                ret[data_fields] = ret[data_fields].mul(ret[normalization_column], axis=0)
+            # if data_group_by is not None:
+            #     ret[data_group_by.data_fields] = ret[data_group_by.data_fields].mul(ret[normalization_column], axis=0)
+            else:
+                raise CannotNormalize('Need to specify a data filter for normalization')
 
         if data_filter is not None:
             for k, v in data_filter.items():

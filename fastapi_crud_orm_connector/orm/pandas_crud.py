@@ -44,7 +44,7 @@ class PandasCrud(Crud):
                 data_group_by: DataGroupBy = None,
                 data_parse: Dict = None,
                 *,
-                normalization_column: Optional[str] = None,
+                weight_column: Optional[str] = None,
                 convert2schema: Union[bool, Type[BaseModel]] = True
                 ) -> GetAllResponse:
 
@@ -53,9 +53,9 @@ class PandasCrud(Crud):
         if self.column_id is not None:
             ret['id'] = ret[self.column_id]
 
-        if normalization_column:
+        if weight_column:
             if data_fields is not None:
-                ret[data_fields] = ret[data_fields].mul(ret[normalization_column], axis=0)
+                ret[data_fields] = ret[data_fields].mul(ret[weight_column], axis=0)
             # if data_group_by is not None:
             #     ret[data_group_by.data_fields] = ret[data_group_by.data_fields].mul(ret[normalization_column], axis=0)
             else:

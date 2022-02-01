@@ -30,6 +30,12 @@ class DataGroupBy(BaseModel):
     unstack: bool = False
 
 
+class DataSimplify(BaseModel):
+    data_field: str
+    data_from: List[str]
+    data_to: str
+
+
 class GetAllResponse(BaseModel):
     list: Any
     count: int

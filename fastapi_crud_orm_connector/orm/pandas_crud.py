@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from starlette import status
 
-from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation
+from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation, DataSimplify
 from fastapi_crud_orm_connector.orm.crud_exceptions import CannotFilterFields, CannotGroupBy, CannotNormalize
 from fastapi_crud_orm_connector.utils.pydantic_schema import pd2pydantic, PandasSchema
 
@@ -43,6 +43,7 @@ class PandasCrud(Crud):
                 data_fields: List = None,
                 data_group_by: DataGroupBy = None,
                 data_parse: Dict = None,
+                data_simplify: List[DataSimplify] = None,
                 *,
                 weight_column: Optional[str] = None,
                 convert2schema: Union[bool, Type[BaseModel]] = True
@@ -95,8 +96,26 @@ class PandasCrud(Crud):
         elif data_fields is not None:
             if not set(self.df.columns).issuperset(set(data_fields)):
                 raise CannotFilterFields(data_fields)
-
             ret = ret[data_fields]
+
+        if data_simplify:
+            _ret = ret.reset_index()
+            for s in data_simplify:
+                toreplace = _ret[_ret[s.data_field].isin(s.data_from)]
+                _new_line = None
+                if data_group_by.operation == MathOperation.sum:
+                    _new_line = toreplace.sum()
+                elif data_group_by.operation == MathOperation.count:
+                    _new_line = toreplace.sum()
+                elif data_group_by.operation == MathOperation.min:
+                    _new_line = toreplace.min()
+                elif data_group_by.operation == MathOperation.max:
+                    _new_line = toreplace.max()
+                elif data_group_by.operation == MathOperation.mean:
+                    _new_line = toreplace.mean()
+                _new_line[s.data_field] = s.data_to
+                ret = ret.drop(toreplace[s.data_field])
+                ret = ret.reset_index().append(_new_line, ignore_index=True).set_index(s.data_field)
 
         if data_sort:
             ret = ret.sort_values(by=data_sort.field, ascending=data_sort.type != DataSortType.ASC)

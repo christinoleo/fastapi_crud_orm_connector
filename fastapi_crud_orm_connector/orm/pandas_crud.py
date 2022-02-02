@@ -44,6 +44,7 @@ class PandasCrud(Crud):
                 data_group_by: DataGroupBy = None,
                 data_parse: Dict = None,
                 data_simplify: List[DataSimplify] = None,
+                minimum_rows_allowed: int = 30,
                 *,
                 weight_column: Optional[str] = None,
                 convert2schema: Union[bool, Type[BaseModel]] = True
@@ -70,6 +71,10 @@ class PandasCrud(Crud):
                     ret = ret[ret[k].astype(str).str.startswith(v)]
                 else:
                     ret = ret[ret[k] == v]
+
+        _filter_by_index = None
+        if minimum_rows_allowed and data_group_by:
+            _filter_by_index = ret[data_group_by.data_fields + data_fields].dropna()[data_group_by.data_fields[0]].value_counts()
 
         if data_group_by is not None:
             if not set(self.df.columns).issuperset(set(data_group_by.data_fields)):
@@ -115,7 +120,11 @@ class PandasCrud(Crud):
                     _new_line = toreplace.mean()
                 _new_line[s.data_field] = s.data_to
                 ret = ret.drop(toreplace[s.data_field])
-                ret = ret.reset_index().append(_new_line, ignore_index=True).set_index(s.data_field)
+                if not minimum_rows_allowed or _filter_by_index[toreplace[s.data_field]].sum() >= minimum_rows_allowed:
+                    ret = ret.reset_index().append(_new_line, ignore_index=True).set_index(s.data_field)
+
+        if _filter_by_index is not None:
+            ret = ret[~ret.index.isin(_filter_by_index.index[_filter_by_index<minimum_rows_allowed])]
 
         if data_sort:
             ret = ret.sort_values(by=data_sort.field, ascending=data_sort.type != DataSortType.ASC)

@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Dict, List, Type, Any, Union
 
+import pandas as pd
 from pydantic import BaseModel
 
 from fastapi_crud_orm_connector.utils.pydantic_schema import SchemaBase
@@ -34,6 +35,18 @@ class DataSimplify(BaseModel):
     data_field: str
     data_from: List[str]
     data_to: str
+
+
+class IndexSpecificationConverter(BaseModel):
+    old_index_field: str
+    new_index_field: str
+    weight_field: str
+    mapping: Any
+
+
+class IndexSpecification(BaseModel):
+    data_field: str
+    index_converter: IndexSpecificationConverter = None
 
 
 class GetAllResponse(BaseModel):

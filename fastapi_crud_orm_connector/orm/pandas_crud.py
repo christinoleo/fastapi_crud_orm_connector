@@ -5,7 +5,8 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from starlette import status
 
-from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation, DataSimplify
+from fastapi_crud_orm_connector.orm.crud import Crud, GetAllResponse, DataSort, DataSortType, DataGroupBy, MathOperation, DataSimplify, \
+    IndexSpecification
 from fastapi_crud_orm_connector.orm.crud_exceptions import CannotFilterFields, CannotGroupBy, CannotNormalize
 from fastapi_crud_orm_connector.utils.pydantic_schema import pd2pydantic, PandasSchema
 
@@ -45,6 +46,7 @@ class PandasCrud(Crud):
                 data_parse: Dict = None,
                 data_simplify: List[DataSimplify] = None,
                 minimum_rows_allowed: int = 30,
+                index: IndexSpecification = None,
                 *,
                 weight_column: Optional[str] = None,
                 convert2schema: Union[bool, Type[BaseModel]] = True
@@ -63,6 +65,10 @@ class PandasCrud(Crud):
             else:
                 raise CannotNormalize('Need to specify a data filter for normalization')
 
+        _filter_by_index = None
+        if minimum_rows_allowed and data_group_by:
+            _filter_by_index = ret[data_group_by.data_fields + data_fields].dropna()[data_group_by.data_fields[0]].value_counts()
+
         if data_filter is not None:
             for k, v in data_filter.items():
                 if isinstance(v, list):
@@ -71,13 +77,8 @@ class PandasCrud(Crud):
                     ret = ret[ret[k].astype(str).str.startswith(v)]
                 else:
                     ret = ret[ret[k] == v]
-
-        _filter_by_index = None
-        if minimum_rows_allowed and data_group_by:
-            _filter_by_index = ret[data_group_by.data_fields + data_fields].dropna()[data_group_by.data_fields[0]].value_counts()
-
         if data_group_by is not None:
-            if not set(self.df.columns).issuperset(set(data_group_by.data_fields)):
+            if not set(ret.columns).issuperset(set(data_group_by.data_fields)):
                 raise CannotGroupBy(data_group_by.data_fields)
 
             ret = ret.groupby(data_group_by.data_fields)
@@ -85,6 +86,12 @@ class PandasCrud(Crud):
                 if not set(self.df.columns).issuperset(set(data_fields)):
                     raise CannotFilterFields(data_fields)
                 ret = ret[data_fields]
+        elif data_fields is not None:
+            if not set(ret.columns).issuperset(set(data_fields)):
+                raise CannotFilterFields(data_fields)
+            ret = ret[data_fields]
+
+        if data_group_by is not None:
             if data_group_by.operation == MathOperation.sum:
                 ret = ret.sum()
             elif data_group_by.operation == MathOperation.count:
@@ -98,10 +105,21 @@ class PandasCrud(Crud):
             if data_group_by.unstack:
                 ret = ret.unstack()
                 ret.columns = ret.columns.droplevel()
-        elif data_fields is not None:
-            if not set(self.df.columns).issuperset(set(data_fields)):
-                raise CannotFilterFields(data_fields)
-            ret = ret[data_fields]
+
+        if index and index.index_converter:
+            _data_cols = ret.columns
+            _ret = ret.join(index.index_converter.mapping.set_index(index.data_field), how='left', on=index.data_field)
+            _ret[_data_cols] = _ret[_data_cols].mul(_ret[index.index_converter.weight_field], axis=0)
+            _ret = _ret.groupby(index.index_converter.new_index_field)[_data_cols].sum()
+            if minimum_rows_allowed and data_group_by is not None and data_group_by.unstack:
+                _ret[_ret.sum(axis=1) < minimum_rows_allowed] = None
+                _ret = _ret.dropna()
+            ret = _ret
+
+            # ret = _ret[[index.data_field, index.index_converter.new_index_field] + data_fields]
+            # _new_ret = _ret.apply(lambda r: index.index_converter.get(r[index.data_field], None), axis=1)
+            # for k, v in index.index_converter.items():
+            #     ret[[index.data_field] + data_fields]
 
         if data_simplify:
             _ret = ret.reset_index()
